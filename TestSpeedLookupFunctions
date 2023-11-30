@@ -1,0 +1,54 @@
+Sub LookupFormulaComparison() 
+//This code has been made by Brad Yundt at this link https://www.quora.com/What-is-the-alternative-for-VLOOKUP-HLOOKUP-and-MATCH-function-Which-is-faster-than-these-functions
+
+Dim RandomDataFormula As String 
+Dim frmla As Variant, frmlas As Variant 
+Dim i As Long 
+Dim rg As Range 
+Dim CalcTime As Double, Start As Double 
+ 
+Application.ScreenUpdating = False 
+ 
+Set rg = Range("A3").Resize(Rows.Count - 2) 
+RandomDataFormula = _ 
+    "=CHAR(RANDBETWEEN(65,80)) & CHAR(RANDBETWEEN(65,80)) & CHAR(RANDBETWEEN(65,80)) & CHAR(RANDBETWEEN(65,80)) & CHAR(RANDBETWEEN(65,80))" 
+ 
+frmlas = Array("=IFNA(VLOOKUP(F3,A:D,3,FALSE),"""")", _ 
+                "=IFNA(INDEX(C:C,MATCH(F3,A:A,0)),"""")", _ 
+                "=XLOOKUP(F3,A:A,C:C,"""")" _ 
+                ) 
+ 
+With Intersect(rg.EntireRow, Range("B:D")) 
+    .Formula = "=CELL(""address"",B1)" 
+    .Formula = .Value 
+End With 
+ 
+With rg 
+    .Formula = RandomDataFormula 
+    .Formula = .Value 
+End With 
+ 
+With Intersect(rg.EntireRow, Range("F:F")) 
+    .Formula = RandomDataFormula 
+    .Formula = .Value 
+End With 
+ 
+Range("A1").Value = "Lookup Table" 
+Range("F1").Value = "Find this" 
+Range("G1:I1").Value = Array("VLOOKUP", "INDEX&MATCH", "XLOOKUP") 
+ 
+i = 6 
+For Each frmla In frmlas 
+    With rg                   'This block has effect of clearing the indices from the lookup column 
+        .Formula = RandomDataFormula 
+        .Formula = .Value 
+    End With 
+     
+    Start = Timer() 
+    i = i + 1 
+    rg.Columns(i).Formula = frmla 
+    CalcTime = Timer() - Start 
+    rg.Columns(i).Formula = rg.Columns(i).Value 
+    Cells(2, i).Value = Format(CalcTime, "#.000") 
+Next 
+End Sub 
