@@ -2,7 +2,11 @@ name: Build APK
 
 on:
   push:
+    branches: [ soghatyar-build ]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -32,16 +36,29 @@ jobs:
         run: gradle wrapper --gradle-version 8.9
 
       - name: Build debug APK
-        run: gradle assembleDebug --no-daemon --stacktrace
+        id: build
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee build-log.txt
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: soghatyar-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+      - name: Publish results to branch
+        if: always()
+        run: |
+          mkdir -p /tmp/out
+          cp build-log.txt /tmp/out/ 2>/dev/null || true
+          cp app/build/outputs/apk/debug/app-debug.apk /tmp/out/ 2>/dev/null || true
+          cp gradle/wrapper/gradle-wrapper.jar /tmp/out/ 2>/dev/null || true
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git checkout --orphan results_tmp
+          git rm -rf . >/dev/null 2>&1 || true
+          find . -maxdepth 1 -mindepth 1 -not -name '.git' -exec rm -rf {} + 2>/dev/null || true
+          cp /tmp/out/* . 2>/dev/null || true
+          git add -A
+          git commit -m "build results $(date -u +%FT%TZ)" || echo "nothing to commit"
+          git push -f origin HEAD:soghatyar-results
 
-      - name: Upload fixed wrapper jar
-        uses: actions/upload-artifact@v4
-        with:
-          name: gradle-wrapper
-          path: gradle/wrapper/gradle-wrapper.jar
+      - name: Reflect build status
+        if: steps.build.outcome != 'success'
+        run: exit 1
